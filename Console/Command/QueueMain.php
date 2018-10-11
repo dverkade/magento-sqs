@@ -15,6 +15,7 @@ use Belvg\Sqs\Model\Topology;
 class QueueMain extends Command
 {
     const QUEUE_NAME = 'queueName';
+    const QUEUE_ALL = 'all';
 
     /**
      * @var Topology
@@ -41,6 +42,13 @@ class QueueMain extends Command
     protected function configure()
     {
         $options = [
+            new InputOption(
+                self::QUEUE_ALL,
+                null,
+                InputOption::VALUE_OPTIONAL,
+                'All Queues',
+                false
+            ),
             new InputOption(
                 self::QUEUE_NAME,
                 null,

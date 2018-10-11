@@ -31,9 +31,12 @@ class QueueCreate extends QueueMain
 
         $start = microtime(true);
 
-        $queueName = (string) $input->getOption(self::QUEUE_NAME);
-
-        $this->topologySQS->create($queueName);
+        if($input->getOption(self::QUEUE_ALL) === false) {
+            $queueName = (string) $input->getOption(self::QUEUE_NAME);
+            $this->topologySQS->create($queueName);
+        } else {
+            $this->topologySQS->createAll();
+        }
 
         $this->output->writeln('Queues have created. Finish (' . (microtime(true) - $start)/60 . ' min).');
     }

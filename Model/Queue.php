@@ -8,7 +8,7 @@
 namespace Belvg\Sqs\Model;
 
 use Belvg\Sqs\Helper\Data;
-use Enqueue\Psr\PsrMessage;
+use Interop\Queue\PsrMessage;
 use Magento\Framework\MessageQueue\EnvelopeFactory;
 use Magento\Framework\MessageQueue\EnvelopeInterface;
 use Magento\Framework\MessageQueue\QueueInterface;
@@ -82,7 +82,7 @@ class Queue implements QueueInterface
          */
         $message = $this->createConsumer()->receive(self::TIMEOUT_PROCESS);
         if (null !== $message) {
-            $envelope = $this->createEnvelop($message);;
+            $envelope = $this->createEnvelop($message);
             return $envelope;
         }
         return null;
@@ -113,7 +113,9 @@ class Queue implements QueueInterface
      */
     protected function getQueueName()
     {
-        return $this->sqsConfig->getValue(Config::PREFIX) . '_' . Data::prepareQueueName($this->queueName);
+        return $this->sqsConfig->getValue(Config::PREFIX) ?
+            $this->sqsConfig->getValue(Config::PREFIX). '_' . Data::prepareQueueName($this->queueName) :
+            Data::prepareQueueName($this->queueName);
     }
 
     protected function createEnvelop(PsrMessage $message)

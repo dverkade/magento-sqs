@@ -7,35 +7,47 @@
 
 namespace Belvg\Sqs\Model;
 
-use Belvg\Sqs\Model\QueueFactory;
-use Magento\Framework\Communication\ConfigInterface as CommunicationConfigInterface;
-use Magento\Framework\Exception\LocalizedException;
-use Magento\Framework\MessageQueue\ConfigInterface as QueueConfig;
-use Magento\Framework\MessageQueue\ConnectionLostException;
+use Magento\Framework\MessageQueue\Topology\Config\ExchangeConfigItem\BindingInterface;
+use Magento\Framework\MessageQueue\Topology\ConfigInterface as TopologyConfig;
 use Magento\Framework\MessageQueue\EnvelopeInterface;
 use Magento\Framework\MessageQueue\ExchangeInterface;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Phrase;
 
 class Exchange implements ExchangeInterface
 {
     /**
+     * @var TopologyConfig
+     */
+    private $topologyConfig;
+
+    /**
      * @var QueueFactory
      */
-    protected $queueFactory;
+    private $queueFactory;
 
     /**
      * @var array
      */
-    protected $queues = [];
+    private $queues = [];
+
+    /**
+     * @var string
+     */
+    const DESTINATION_TYPE = 'queue';
+
 
     /**
      * Exchange constructor.
-     * @param \Belvg\Sqs\Model\QueueFactory $queueFactory
+     * @param TopologyConfig $topologyConfig
+     * @param QueueFactory $queueFactory
      */
     public function __construct(
+        TopologyConfig $topologyConfig,
         QueueFactory $queueFactory
     )
     {
+        $this->topologyConfig = $topologyConfig;
         $this->queueFactory = $queueFactory;
     }
 
@@ -44,23 +56,46 @@ class Exchange implements ExchangeInterface
      */
     public function enqueue($topic, EnvelopeInterface $envelope)
     {
+        $exchange = $this->topologyConfig->getExchange($topic, Config::SQS_CONFIG);
 
-        $queue = $this->createQueue($topic);
-        $queue->push($envelope);
+        if (!$exchange) {
+            throw new LocalizedException(
+                new Phrase('Exchange for "%topic" is not configured.', ['topic' => $topic])
+            );
+        }
+
+        foreach ($exchange->getBindings() as $binding) {
+            if ($this->isValidBinding($topic, $binding)) {
+                $queue = $this->createQueue($binding->getDestination());
+                $queue->push($envelope);
+            }
+        }
+
         return null;
     }
 
     /**
-     * @param $topicName same as queue name
+     * @param $queueName same as queue name
      * @return Queue
      */
-    protected function createQueue($topicName)
+    protected function createQueue($queueName)
     {
-        if (array_key_exists($topicName, $this->queues)) {
-            return $this->queues[$topicName];
+        if (!isset($this->queues[$queueName])) {
+            $this->queues[$queueName] = $this->queueFactory->create($queueName);
         }
-        $this->queues[$topicName] = $this->queueFactory->create(['queueName' => $topicName]);
-        return $this->queues[$topicName];
+
+        return $this->queues[$queueName];
     }
 
+    /**
+     * @param $topic
+     * @param BindingInterface $binding
+     * @return bool
+     */
+    private function isValidBinding($topic, BindingInterface $binding)
+    {
+        return $binding->getTopic() == $topic &&
+            $binding->getDestinationType() == self::DESTINATION_TYPE &&
+            !$binding->isDisabled();
+    }
 }
